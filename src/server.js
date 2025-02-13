@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
 import { MongoClient } from 'mongodb';
+import bcrypt from "bcrypt"; 
 
 const app = express();
 app.use(express.json());
@@ -24,6 +25,44 @@ const client = new MongoClient(uri);
     }
   }
   run().catch(console.dir);
+
+
+//insert user to database
+app.post('/api/register', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Missing user information' });
+  }
+
+  try {
+    await client.connect();
+    const db = client.db("book_branch_db");
+    const collection = db.collection("user_info");
+
+    const existingUser = await collection.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await collection.insertOne({
+      username: email, 
+      password: hashedPassword,
+    })
+    if (result.insertedId) {
+      res.status(201).json({ message: 'User added successfully' });
+    } else {
+      res.status(400).json({ error: 'Failed to add user' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+    }
+})
 
 //update user info with book
 app.patch('/api/details/:id/:username', async (req, res) => {
@@ -61,16 +100,6 @@ app.patch('/api/details/:id/:username', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     await client.close();
-    }
-});
-
-app.post('api/details/:id/review', (req, res) => {
-    const { id } = req.params;
-    const { postedBy, review } = req.body;
-
-    const book = bookInfo.find(b => b.id === id);
-    if (book) {
-        
     }
 });
 
