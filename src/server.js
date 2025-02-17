@@ -3,6 +3,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 import { MongoClient } from 'mongodb';
 import bcrypt from "bcrypt"; 
+import fs from 'fs';
+import admin from 'firebase-admin';
+
+const credentials = JSON.parse(
+  fs.readFileSync('../credentials.json')
+);
+admin.initializeApp({
+  credential: admin.credential.cert(credentials),
+});
 
 const app = express();
 app.use(express.json());
