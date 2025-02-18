@@ -5,9 +5,15 @@ import { MongoClient } from 'mongodb';
 import bcrypt from "bcrypt"; 
 import fs from 'fs';
 import admin from 'firebase-admin';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const credentialsPath = path.join(__dirname, '../credentials.json');
 const credentials = JSON.parse(
-  fs.readFileSync('../credentials.json')
+  fs.readFileSync(credentialsPath, 'utf-8')
 );
 admin.initializeApp({
   credential: admin.credential.cert(credentials),
@@ -74,11 +80,11 @@ app.post('/api/register', async (req, res) => {
 })
 
 //update user info with book
-app.patch('/api/details/:id/:username', async (req, res) => {
-    const { username } = req.params;
-    const { bookID, review, rating } = req.body;
+app.patch('/api/details/:id', async (req, res) => {
+    const { id } = req.params;
+    const { email, review, rating } = req.body;
 
-  if (!bookID || !review || !rating) {
+  if (!email || !review || !rating) {
     return res.status(400).json({ error: 'Missing book information' });
   }
 
@@ -88,11 +94,11 @@ app.patch('/api/details/:id/:username', async (req, res) => {
     const collection = db.collection("user_info");
 
     const result = await collection.updateOne(
-      { username: username },
+      { username: email },
       {
         $push: {
           books: {
-            bookID: bookID,
+            bookID: id,
             review: review,
             rating: rating,
           },
