@@ -15,6 +15,7 @@ const credentialsPath = path.join(__dirname, '../credentials.json');
 const credentials = JSON.parse(
   fs.readFileSync(credentialsPath, 'utf-8')
 );
+
 admin.initializeApp({
   credential: admin.credential.cert(credentials),
 });
@@ -24,7 +25,6 @@ app.use(express.json());
 
 
 const uri = process.env.MONGODB_URI
-console.log("MongoDB URI:", process.env.MONGODB_URI);
 const client = new MongoClient(uri);
 
   async function run() {
@@ -41,6 +41,24 @@ const client = new MongoClient(uri);
   }
   run().catch(console.dir);
 
+// Middleware to verify Firebase token
+const authenticateUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      req.user = decodedToken; // Attach user data to request
+      next();
+  } catch (error) {
+      console.error("Token verification failed:", error);
+      return res.status(403).json({ error: "Unauthorized: Invalid token" });
+  }
+};
 
 //insert user to database
 app.post('/api/register', async (req, res) => {
@@ -118,40 +136,30 @@ app.patch('/api/details/:id', async (req, res) => {
     }
 });
 
-//get user book info for profile
-app.get('/api/profile', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const token = authHeader.split(" ")[1];
-
-  try {
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    const email = decodedToken.email; // Get user email from token
-    
+// GET user books for profile
+app.get('/api/profile', authenticateUser, async (req, res) => {
+  try{
     await client.connect();
     const db = client.db("book_branch_db");
     const collection = db.collection("user_info");
 
-    const user = await collection.findOne(
-      { username: email }, 
-      { projection: { books: 1, _id: 0 } } // Only return books array
-    );
+    const userEmail = req.user.email;
 
-    if (user) {
-      res.status(200).json(user.books || []); // Return books or empty array
-    } else {
-      res.status(404).json({ error: 'User not found' });
+    const user = await collection.findOne({ username: userEmail });
+
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
     }
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  } finally {
+
+    res.status(200).json(user.books || []); // Return user's books
+} catch (err) {
+    console.error("Error fetching user books:", err);
+    res.status(500).json({ error: "Internal server error" });
+} finally {
     await client.close();
   }
-});
+})
+
 
 app.listen(8000, () => {
     console.log('Server is listening on port 8000');
