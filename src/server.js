@@ -94,7 +94,7 @@ app.patch('/api/details/:id', async (req, res) => {
     const collection = db.collection("user_info");
 
     const result = await collection.updateOne(
-      { username: email },
+      { username: email }, 
       {
         $push: {
           books: {
@@ -116,6 +116,41 @@ app.patch('/api/details/:id', async (req, res) => {
   } finally {
     await client.close();
     }
+});
+
+//get user book info for profile
+app.get('/api/profile', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const email = decodedToken.email; // Get user email from token
+    
+    await client.connect();
+    const db = client.db("book_branch_db");
+    const collection = db.collection("user_info");
+
+    const user = await collection.findOne(
+      { username: email }, 
+      { projection: { books: 1, _id: 0 } } // Only return books array
+    );
+
+    if (user) {
+      res.status(200).json(user.books || []); // Return books or empty array
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+  }
 });
 
 app.listen(8000, () => {
