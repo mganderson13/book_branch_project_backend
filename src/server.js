@@ -22,7 +22,11 @@ admin.initializeApp({
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../build')));
 
+app.get(/^(?!\/api).+/, (req, res) => {
+  res.sendFile(path.join(__dirname, '../build/index.html'));
+})
 
 const uri = process.env.MONGODB_URI
 const client = new MongoClient(uri);
@@ -160,7 +164,8 @@ app.get('/api/profile', authenticateUser, async (req, res) => {
   }
 })
 
+const PORT = process.env.PORT || 8000;
 
-app.listen(8000, () => {
-    console.log('Server is listening on port 8000');
+app.listen(PORT, () => {
+    console.log('Server is listening on port ' + PORT);
 });
