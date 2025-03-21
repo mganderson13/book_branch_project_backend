@@ -101,8 +101,8 @@ app.post('/api/register', async (req, res) => {
     }
 })
 
-//update user info with book
-app.patch('/api/details/:id', async (req, res) => {
+//update user info with book review
+app.patch('/api/details/:id/review', async (req, res) => {
     const { id } = req.params;
     const { email, review, rating } = req.body;
 
@@ -138,6 +138,43 @@ app.patch('/api/details/:id', async (req, res) => {
   } finally {
     await client.close();
     }
+});
+
+//update user info with saved book
+app.patch('/api/details/:id/save', async (req, res) => {
+  const { id } = req.params;
+  const { email } = req.body;
+
+if (!email) {
+  return res.status(400).json({ error: 'Missing user information' });
+}
+
+try {
+  await client.connect();
+  const db = client.db("book_branch_db");
+  const collection = db.collection("user_info");
+
+  const result = await collection.updateOne(
+    { username: email }, 
+    {
+      $push: {
+        saved: {
+          bookID: id
+        },
+      },
+    }
+  );
+  if (result.modifiedCount > 0) {
+    res.status(200).json({ message: 'Book saved successfully' });
+  } else {
+    res.status(404).json({ error: 'User not found or no update made' });
+  }
+} catch (err) {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
+} finally {
+  await client.close();
+  }
 });
 
 // GET user books for profile
