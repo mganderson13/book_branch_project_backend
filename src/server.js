@@ -192,7 +192,10 @@ app.get('/api/profile', authenticateUser, async (req, res) => {
         return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json(user.books || []); // Return user's books
+    res.status(200).json({ // Return user's books
+      books: user.books || [],
+      saved: user.saved || []
+    }); 
 } catch (err) {
     console.error("Error fetching user books:", err);
     res.status(500).json({ error: "Internal server error" });
