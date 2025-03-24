@@ -204,6 +204,40 @@ app.get('/api/profile', authenticateUser, async (req, res) => {
   }
 })
 
+//GET book exists in books[] or saved[]?
+app.get('/api/details/:id/checkstatus', authenticateUser, async (req, res) => {
+  const { id } = req.params;
+  try{
+    await client.connect();
+    const db = client.db("book_branch_db");
+    const collection = db.collection("user_info");
+
+    const userEmail = req.user.email;
+
+    const user = await collection.findOne({ username: userEmail });
+
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if bookID exists in books array
+    const reviewed = user.books.some(book => book.bookID === id);
+    
+    // Check if bookID exists in saved array
+    const saved = user.saved.some(book => book.bookID === id);
+    
+    res.status(200).json({
+      reviewed, 
+      saved
+    })
+  } catch (err) {
+    console.error("Error fetching user books:", err);
+    res.status(500).json({ error: "Internal server error" });
+} finally {
+    await client.close();
+  }
+})
+
 const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
